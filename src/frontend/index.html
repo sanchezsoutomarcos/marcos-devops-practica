@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tienda online</title>
+<style>
+  :root {
+    --bg: #f4f6fa; --card: #ffffff; --ink: #1d2433; --muted: #667085;
+    --line: #e3e7ee; --accent: #2f5bea; --accent-ink: #ffffff;
+    --ok: #137a3d; --ok-bg: #e6f6ec; --err: #b42318; --err-bg: #fdecea;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); line-height: 1.45; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px;
+           display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
+  header h1 { margin: 0; font-size: 1.25rem; }
+  .servidor { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .9rem; }
+  .servidor input { width: 250px; }
+  #estado { font-size: .85rem; padding: 2px 10px; border-radius: 999px; }
+  #estado.ok { background: var(--ok-bg); color: var(--ok); }
+  #estado.error { background: var(--err-bg); color: var(--err); }
+  nav { display: flex; gap: 4px; padding: 12px 24px 0; flex-wrap: wrap; }
+  nav button { border: 1px solid var(--line); border-bottom: none; background: #e9edf5; color: var(--muted);
+               padding: 9px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font: inherit; }
+  nav button.activa { background: var(--card); color: var(--ink); font-weight: 600; }
+  main { padding: 0 24px 40px; }
+  section { display: none; background: var(--card); border: 1px solid var(--line);
+            border-radius: 0 10px 10px 10px; padding: 20px; }
+  section.activa { display: block; }
+  h2 { margin: 0 0 14px; font-size: 1.1rem; }
+  h3 { margin: 22px 0 10px; font-size: 1rem; }
+  .fila { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--muted); }
+  input, select { font: inherit; padding: 7px 9px; border: 1px solid #cfd6e2; border-radius: 6px;
+                  background: #fff; color: var(--ink); min-width: 0; }
+  input:focus, select:focus { outline: 2px solid #bfd0ff; border-color: var(--accent); }
+  button.btn { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent);
+               background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button.btn.sec { background: #fff; color: var(--accent); }
+  button.btn.peligro { background: #fff; color: var(--err); border-color: #f0b6b0; padding: 4px 10px; }
+  button.btn:hover { filter: brightness(.95); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .92rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .vacio { color: var(--muted); padding: 14px 0; font-style: italic; }
+  .etiqueta { background: #eef2ff; color: var(--accent); padding: 2px 8px; border-radius: 999px; font-size: .78rem; }
+  #aviso { margin: 14px 24px 0; padding: 10px 14px; border-radius: 8px; display: none; }
+  #aviso.ok { display: block; background: var(--ok-bg); color: var(--ok); }
+  #aviso.error { display: block; background: var(--err-bg); color: var(--err); }
+  .tarjeta-pedido { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-top: 12px; }
+  .tarjeta-pedido header { all: unset; display: flex; justify-content: space-between; font-weight: 600; }
+  .pista { color: var(--muted); font-size: .85rem; margin: 6px 0 0; }
+  .total { text-align: right; font-weight: 600; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🛒 Tienda online</h1>
+  <div class="servidor">
+    <!-- La dirección de la API se puede cambiar aquí sin tocar el código:
+         http://localhost:8000 (este equipo) o http://192.168.1.34:8000 (otro equipo) -->
+    <label style="flex-direction:row;align-items:center;gap:8px">Servidor API
+      <input id="baseUrl" type="text" spellcheck="false">
+    </label>
+    <button class="btn sec" id="btnConectar" type="button">Conectar</button>
+    <span id="estado">sin comprobar</span>
+  </div>
+</header>
+
+<nav id="pestanas">
+  <button data-seccion="productos" class="activa" type="button">Productos</button>
+  <button data-seccion="usuarios" type="button">Usuarios</button>
+  <button data-seccion="pedido" type="button">Nuevo pedido</button>
+  <button data-seccion="historial" type="button">Pedidos de un usuario</button>
+</nav>
+
+<div id="aviso" role="status"></div>
+
+<main>
+  <!-- ============================ PRODUCTOS ============================ -->
+  <section id="productos" class="activa">
+    <h2>Productos</h2>
+    <form id="formProducto" class="fila">
+      <label>Tipo
+        <select id="pTipo">
+          <option value="generico">Genérico</option>
+          <option value="electronico">Electrónico</option>
+          <option value="ropa">Ropa</option>
+        </select>
+      </label>
+      <label>Nombre <input id="pNombre" required maxlength="100"></label>
+      <label>Precio (€) <input id="pPrecio" type="number" step="0.01" min="0.01" required style="width:100px"></label>
+      <label>Stock <input id="pStock" type="number" step="1" min="0" required style="width:80px"></label>
+      <label id="lGarantia" hidden>Meses de garantía <input id="pGarantia" type="number" step="1" min="0" style="width:120px"></label>
+      <label id="lTalla" hidden>Talla <input id="pTalla" maxlength="10" style="width:70px"></label>
+      <label id="lColor" hidden>Color <input id="pColor" maxlength="30" style="width:110px"></label>
+      <button class="btn" type="submit">Crear producto</button>
+    </form>
+    <h3>Catálogo</h3>
+    <div id="tablaProductos"></div>
+  </section>
+
+  <!-- ============================= USUARIOS ============================ -->
+  <section id="usuarios">
+    <h2>Usuarios</h2>
+    <form id="formUsuario" class="fila">
+      <label>Nombre <input id="uNombre" required maxlength="100"></label>
+      <label>Email <input id="uEmail" type="email" required></label>
+      <label>Tipo
+        <select id="uTipo">
+          <option value="cliente">Cliente</option>
+          <option value="administrador">Administrador</option>
+        </select>
+      </label>
+      <label id="lDireccion">Dirección postal <input id="uDireccion" maxlength="200" style="width:230px"></label>
+      <button class="btn" type="submit">Crear usuario</button>
+    </form>
+    <h3>Usuarios registrados</h3>
+    <div id="tablaUsuarios"></div>
+  </section>
+
+  <!-- ============================ NUEVO PEDIDO ========================= -->
+  <section id="pedido">
+    <h2>Nuevo pedido</h2>
+    <div class="fila">
+      <label>Cliente <select id="pedCliente" style="min-width:220px"></select></label>
+    </div>
+    <h3>Añadir productos</h3>
+    <div class="fila">
+      <label>Producto <select id="pedProducto" style="min-width:260px"></select></label>
+      <label>Cantidad <input id="pedCantidad" type="number" min="1" step="1" value="1" style="width:90px"></label>
+      <button class="btn sec" id="btnAnadirLinea" type="button">Añadir al pedido</button>
+    </div>
+    <div id="lineasPedido"></div>
+    <p class="pista">Si el mismo producto aparece varias veces, la API suma las cantidades.</p>
+    <div class="fila" style="margin-top:14px">
+      <button class="btn" id="btnCrearPedido" type="button">Crear pedido</button>
+    </div>
+  </section>
+
+  <!-- ============================ HISTORIAL ============================ -->
+  <section id="historial">
+    <h2>Pedidos de un usuario</h2>
+    <div class="fila">
+      <label>Usuario <select id="histUsuario" style="min-width:220px"></select></label>
+      <button class="btn" id="btnConsultarPedidos" type="button">Consultar pedidos</button>
+    </div>
+    <div id="resultadoPedidos"></div>
+  </section>
+</main>
+
+<script>
+/* =====================================================================
+   FRONTEND DE LA TIENDA ONLINE
+   Se comunica con la API FastAPI únicamente mediante peticiones HTTP
+   (fetch). Dónde está cada cosa:
+
+   - api(metodo, ruta, cuerpo) ... ÚNICA función que hace peticiones HTTP.
+                                   Construye la URL (BASE_URL + ruta), envía el
+                                   JSON, y procesa la respuesta / los errores.
+   - cargarProductos()  ........ GET    /productos
+   - crearProducto()    ........ POST   /productos
+   - eliminarProducto() ........ DELETE /productos/{id}
+   - cargarUsuarios()   ........ GET    /usuarios
+   - crearUsuario()     ........ POST   /usuarios
+   - crearPedido()      ........ POST   /pedidos
+   - consultarPedidos() ........ GET    /usuarios/{id}/pedidos
+   ===================================================================== */
+
+// --- Dirección base de la API (modificable desde la cabecera de la página) ---
+const URL_POR_DEFECTO = "http://localhost:8000";
+let BASE_URL = URL_POR_DEFECTO;
+try { BASE_URL = localStorage.getItem("baseUrl") || URL_POR_DEFECTO; } catch (e) {}
+
+// Datos en memoria para rellenar los desplegables
+let productosCache = [];
+let usuariosCache = [];
+let lineas = [];   // líneas del pedido que se está montando: {producto_id, cantidad}
+
+const $ = (id) => document.getElementById(id);
+
+/* ------------------------------------------------------------------
+   api(): hace la petición HTTP a la API y procesa la respuesta.
+     metodo : "GET" | "POST" | "DELETE"
+     ruta   : p. ej. "/productos"  (se añade a BASE_URL)
+     cuerpo : objeto JS que se envía como JSON (opcional)
+   Devuelve el JSON de la respuesta (o null si es 204 sin cuerpo).
+   Si el código de estado no es 2xx lanza un Error con el mensaje de la API.
+------------------------------------------------------------------ */
+async function api(metodo, ruta, cuerpo) {
+  const opciones = { method: metodo, headers: {} };
+  if (cuerpo !== undefined) {
+    opciones.headers["Content-Type"] = "application/json";
+    opciones.body = JSON.stringify(cuerpo);
+  }
+
+  let respuesta;
+  try {
+    respuesta = await fetch(BASE_URL + ruta, opciones);        // <-- la petición HTTP
+  } catch (e) {
+    marcarEstado(false);
+    throw new Error("No se pudo conectar con la API en " + BASE_URL);
+  }
+  marcarEstado(true);
+
+  if (respuesta.status === 204) return null;                   // DELETE correcto: sin cuerpo
+  let datos = null;
+  try { datos = await respuesta.json(); } catch (e) {}         // cuerpo JSON de la respuesta
+
+  if (!respuesta.ok) {                                         // 4xx / 5xx
+    throw new Error(mensajeDeError(respuesta.status, datos));
+  }
+  return datos;
+}
+
+// Convierte el JSON de error de la API ({"detail": ...}) en un texto legible.
+function mensajeDeError(codigo, datos) {
+  const detalle = datos && datos.detail;
+  if (typeof detalle === "string") return detalle;
+  if (Array.isArray(detalle)) {                                // errores de validación (422)
+    return detalle.map(d => {
+      const campo = (d.loc || []).filter(x => x !== "body").join(".");
+      return (campo ? campo + ": " : "") + d.msg.replace("Value error, ", "");
+    }).join(" · ");
+  }
+  return "Error " + codigo;
+}
+
+/* ----------------------------- interfaz común ----------------------------- */
+let temporizadorAviso;
+function aviso(texto, tipo) {
+  const el = $("aviso");
+  el.textContent = texto;
+  el.className = tipo;
+  clearTimeout(temporizadorAviso);
+  temporizadorAviso = setTimeout(() => { el.className = ""; }, 6000);
+}
+function marcarEstado(conectado) {
+  const el = $("estado");
+  el.textContent = conectado ? "conectado" : "sin conexión";
+  el.className = conectado ? "ok" : "error";
+}
+// Crea un elemento de texto seguro (textContent evita inyectar HTML)
+function el(etiqueta, texto, clase) {
+  const e = document.createElement(etiqueta);
+  if (texto !== undefined) e.textContent = texto;
+  if (clase) e.className = clase;
+  return e;
+}
+const euros = (n) => Number(n).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+
+// Dibuja una tabla. columnas: [{titulo, valor:(fila)=>string|Node, num:boolean}]
+function pintarTabla(contenedor, columnas, filas, mensajeVacio) {
+  contenedor.replaceChildren();
+  if (filas.length === 0) { contenedor.append(el("div", mensajeVacio, "vacio")); return; }
+  const tabla = el("table");
+  const cab = el("tr");
+  columnas.forEach(c => cab.append(el("th", c.titulo, c.num ? "num" : "")));
+  const cabecera = el("thead");
+  cabecera.append(cab);
+  tabla.append(cabecera);
+  const cuerpo = el("tbody");
+  filas.forEach(f => {
+    const tr = el("tr");
+    columnas.forEach(c => {
+      const td = el("td", undefined, c.num ? "num" : "");
+      const v = c.valor(f);
+      td.append(v instanceof Node ? v : document.createTextNode(v));
+      tr.append(td);
+    });
+    cuerpo.append(tr);
+  });
+  tabla.append(cuerpo);
+  contenedor.append(tabla);
+}
+
+/* ================================ PRODUCTOS ================================ */
+
+// GET /productos  -> lista de productos [{id, tipo, nombre, precio, stock, ...}]
+async function cargarProductos() {
+  try {
+    productosCache = await api("GET", "/productos");
+    pintarTabla($("tablaProductos"), [
+      { titulo: "ID", valor: p => String(p.id) },
+      { titulo: "Tipo", valor: p => el("span", p.tipo, "etiqueta") },
+      { titulo: "Nombre", valor: p => p.nombre },
+      { titulo: "Detalles", valor: p => detallesProducto(p) },
+      { titulo: "Precio", valor: p => euros(p.precio), num: true },
+      { titulo: "Stock", valor: p => String(p.stock), num: true },
+      { titulo: "", valor: p => {
+          const b = el("button", "Eliminar", "btn peligro");
+          b.type = "button";
+          b.addEventListener("click", () => eliminarProducto(p.id, p.nombre));
+          return b;
+      } },
+    ], productosCache, "No hay productos todavía. Crea el primero arriba.");
+    rellenarSelectProductos();
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+function detallesProducto(p) {
+  if (p.tipo === "electronico") return p.meses_garantia + " meses de garantía";
+  if (p.tipo === "ropa") return "Talla " + p.talla + " · " + p.color;
+  return "—";
+}
+
+// POST /productos  con el JSON del formulario -> devuelve el producto creado (201)
+async function crearProducto(ev) {
+  ev.preventDefault();
+  const tipo = $("pTipo").value;
+  const cuerpo = {
+    tipo: tipo,
+    nombre: $("pNombre").value.trim(),
+    precio: parseFloat($("pPrecio").value),
+    stock: parseInt($("pStock").value, 10),
+  };
+  if (tipo === "electronico") cuerpo.meses_garantia = parseInt($("pGarantia").value, 10);
+  if (tipo === "ropa") { cuerpo.talla = $("pTalla").value.trim(); cuerpo.color = $("pColor").value.trim(); }
+  try {
+    const creado = await api("POST", "/productos", cuerpo);
+    aviso("Producto «" + creado.nombre + "» creado con id " + creado.id, "ok");
+    $("formProducto").reset();
+    actualizarCamposProducto();
+    cargarProductos();
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+// DELETE /productos/{id}  -> 204 sin cuerpo
+async function eliminarProducto(id, nombre) {
+  if (!confirm("¿Eliminar el producto «" + nombre + "»?")) return;
+  try {
+    await api("DELETE", "/productos/" + id);
+    aviso("Producto «" + nombre + "» eliminado", "ok");
+    cargarProductos();
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+// Muestra solo los campos que corresponden al tipo de producto elegido
+function actualizarCamposProducto() {
+  const t = $("pTipo").value;
+  $("lGarantia").hidden = t !== "electronico";
+  $("lTalla").hidden = t !== "ropa";
+  $("lColor").hidden = t !== "ropa";
+  $("pGarantia").required = t === "electronico";
+  $("pTalla").required = t === "ropa";
+  $("pColor").required = t === "ropa";
+}
+
+/* ================================= USUARIOS ================================ */
+
+// GET /usuarios  -> lista de usuarios [{id, nombre, email, es_admin}]
+async function cargarUsuarios() {
+  try {
+    usuariosCache = await api("GET", "/usuarios");
+    pintarTabla($("tablaUsuarios"), [
+      { titulo: "ID", valor: u => String(u.id) },
+      { titulo: "Nombre", valor: u => u.nombre },
+      { titulo: "Email", valor: u => u.email },
+      { titulo: "Rol", valor: u => el("span", u.es_admin ? "Administrador" : "Cliente", "etiqueta") },
+    ], usuariosCache, "No hay usuarios todavía. Crea el primero arriba.");
+    rellenarSelectUsuarios();
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+// POST /usuarios  -> devuelve el usuario creado (201). Errores: 409 (email repetido), 422 (datos inválidos)
+async function crearUsuario(ev) {
+  ev.preventDefault();
+  const tipo = $("uTipo").value;
+  const cuerpo = { nombre: $("uNombre").value.trim(), email: $("uEmail").value.trim(), tipo: tipo };
+  if (tipo === "cliente") cuerpo.direccion = $("uDireccion").value.trim();
+  try {
+    const creado = await api("POST", "/usuarios", cuerpo);
+    aviso("Usuario «" + creado.nombre + "» creado con id " + creado.id, "ok");
+    $("formUsuario").reset();
+    actualizarCamposUsuario();
+    cargarUsuarios();
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+function actualizarCamposUsuario() {
+  const esCliente = $("uTipo").value === "cliente";
+  $("lDireccion").hidden = !esCliente;
+  $("uDireccion").required = esCliente;
+}
+
+/* ================================== PEDIDOS ================================ */
+
+function rellenarSelectUsuarios() {
+  for (const id of ["pedCliente", "histUsuario"]) {
+    const sel = $(id);
+    const previo = sel.value;
+    sel.replaceChildren();
+    if (usuariosCache.length === 0) { sel.append(new Option("(no hay usuarios)", "")); continue; }
+    usuariosCache.forEach(u => sel.append(new Option(u.id + " · " + u.nombre, u.id)));
+    if (previo) sel.value = previo;
+  }
+}
+
+function rellenarSelectProductos() {
+  const sel = $("pedProducto");
+  const previo = sel.value;
+  sel.replaceChildren();
+  if (productosCache.length === 0) { sel.append(new Option("(no hay productos)", "")); return; }
+  productosCache.forEach(p =>
+    sel.append(new Option(p.nombre + " — " + euros(p.precio) + " (stock " + p.stock + ")", p.id)));
+  if (previo) sel.value = previo;
+}
+
+function anadirLinea() {
+  const producto_id = parseInt($("pedProducto").value, 10);
+  const cantidad = parseInt($("pedCantidad").value, 10);
+  if (!producto_id) return aviso("Elige un producto", "error");
+  if (!(cantidad >= 1)) return aviso("La cantidad debe ser al menos 1", "error");
+  lineas.push({ producto_id, cantidad });
+  pintarLineas();
+}
+
+function pintarLineas() {
+  const cont = $("lineasPedido");
+  cont.replaceChildren();
+  if (lineas.length === 0) { cont.append(el("div", "Todavía no has añadido productos.", "vacio")); return; }
+  const filas = lineas.map((l, i) => ({ ...l, i, producto: productosCache.find(p => p.id === l.producto_id) }));
+  pintarTabla(cont, [
+    { titulo: "Producto", valor: f => f.producto ? f.producto.nombre : "Producto " + f.producto_id },
+    { titulo: "Cantidad", valor: f => String(f.cantidad), num: true },
+    { titulo: "Subtotal", valor: f => f.producto ? euros(f.producto.precio * f.cantidad) : "—", num: true },
+    { titulo: "", valor: f => {
+        const b = el("button", "Quitar", "btn peligro");
+        b.type = "button";
+        b.addEventListener("click", () => { lineas.splice(f.i, 1); pintarLineas(); });
+        return b;
+    } },
+  ], filas, "");
+}
+
+// POST /pedidos  con {cliente_id, items:[{producto_id, cantidad}]} -> pedido creado (201)
+// Errores: 404 (cliente o producto no existe), 409 (stock insuficiente), 422 (datos inválidos)
+async function crearPedido() {
+  const cliente_id = parseInt($("pedCliente").value, 10);
+  if (!cliente_id) return aviso("Elige un cliente", "error");
+  if (lineas.length === 0) return aviso("Añade al menos un producto al pedido", "error");
+  try {
+    const pedido = await api("POST", "/pedidos", { cliente_id: cliente_id, items: lineas });
+    aviso("Pedido #" + pedido.id + " creado. Total: " + euros(pedido.total), "ok");
+    lineas = [];
+    pintarLineas();
+    cargarProductos();   // el stock ha cambiado
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+// GET /usuarios/{id}/pedidos  -> lista de pedidos [{id, fecha, cliente, total, items:[...]}]
+async function consultarPedidos() {
+  const id = parseInt($("histUsuario").value, 10);
+  const cont = $("resultadoPedidos");
+  if (!id) return aviso("Elige un usuario", "error");
+  try {
+    const pedidos = await api("GET", "/usuarios/" + id + "/pedidos");
+    cont.replaceChildren();
+    if (pedidos.length === 0) { cont.append(el("div", "Este usuario no tiene pedidos.", "vacio")); return; }
+    pedidos.forEach(p => {
+      const tarjeta = el("div", undefined, "tarjeta-pedido");
+      const cab = el("header");
+      cab.append(el("span", "Pedido #" + p.id), el("span", new Date(p.fecha).toLocaleString("es-ES")));
+      tarjeta.append(cab);
+      const tabla = el("div");
+      pintarTabla(tabla, [
+        { titulo: "Producto", valor: i => i.nombre_producto },
+        { titulo: "Cantidad", valor: i => String(i.cantidad), num: true },
+        { titulo: "Precio unidad", valor: i => euros(i.precio_unitario), num: true },
+        { titulo: "Subtotal", valor: i => euros(i.subtotal), num: true },
+      ], p.items, "");
+      tarjeta.append(tabla, el("div", "Total: " + euros(p.total), "total"));
+      cont.append(tarjeta);
+    });
+  } catch (e) { aviso(e.message, "error"); }
+}
+
+/* ============================ conexión y arranque ============================ */
+
+async function conectar() {
+  let url = $("baseUrl").value.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(url)) url = "http://" + url;
+  BASE_URL = url;
+  $("baseUrl").value = url;
+  try { localStorage.setItem("baseUrl", url); } catch (e) {}
+  await Promise.all([cargarProductos(), cargarUsuarios()]);
+}
+
+function mostrarSeccion(nombre) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("activa", b.dataset.seccion === nombre));
+  document.querySelectorAll("main section").forEach(s => s.classList.toggle("activa", s.id === nombre));
+  // Al entrar en una sección se refrescan los datos desde la API
+  if (nombre === "productos" || nombre === "pedido") cargarProductos();
+  if (nombre === "usuarios" || nombre === "pedido" || nombre === "historial") cargarUsuarios();
+}
+
+document.querySelectorAll("nav button").forEach(b =>
+  b.addEventListener("click", () => mostrarSeccion(b.dataset.seccion)));
+$("btnConectar").addEventListener("click", conectar);
+$("baseUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") conectar(); });
+$("formProducto").addEventListener("submit", crearProducto);
+$("formUsuario").addEventListener("submit", crearUsuario);
+$("pTipo").addEventListener("change", actualizarCamposProducto);
+$("uTipo").addEventListener("change", actualizarCamposUsuario);
+$("btnAnadirLinea").addEventListener("click", anadirLinea);
+$("btnCrearPedido").addEventListener("click", crearPedido);
+$("btnConsultarPedidos").addEventListener("click", consultarPedidos);
+
+$("baseUrl").value = BASE_URL;
+actualizarCamposProducto();
+actualizarCamposUsuario();
+pintarLineas();
+conectar();
+</script>
+</body>
+</html>
