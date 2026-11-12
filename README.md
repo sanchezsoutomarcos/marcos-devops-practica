@@ -25,6 +25,7 @@ trabajo con Git y GitHub (ramas, commits y Pull Requests) y con Docker
 ```
 marcos-devops-practica/
 ├── Dockerfile                ← imagen Docker de la API
+├── docker-compose.yml        ← levanta la API y el frontend juntos
 ├── .dockerignore             ← ficheros que no entran en la imagen
 ├── requirements.txt          ← dependencias con versiones fijadas
 ├── README.md
@@ -37,7 +38,9 @@ marcos-devops-practica/
     ├── cliente_python/
     │   └── cliente.py        ← cliente con requests
     └── frontend/
-        └── index.html        ← frontend web
+        ├── index.html        ← frontend web
+        ├── Dockerfile        ← imagen Docker del frontend (nginx)
+        └── nginx.conf        ← configuración del servidor web
 ```
 
 ## Docker
@@ -131,6 +134,44 @@ Descargar y ejecutar la imagen publicada en cualquier equipo con Docker:
 ```bash
 docker pull sanchezsoutomarcos/tienda-online-api:1.0.0
 docker run -d --name tienda-api -p 8000:8000 sanchezsoutomarcos/tienda-online-api:1.0.0
+```
+
+### 6. Docker Compose: API y frontend juntos
+
+El fichero `docker-compose.yml` levanta dos contenedores en la misma red de Docker:
+
+| Servicio | Imagen | Puerto en el equipo | Qué es |
+|---|---|---|---|
+| `api` | `Dockerfile` de la raíz | 8000 | API REST (FastAPI) |
+| `frontend` | `src/frontend/Dockerfile` | 8080 | Página web servida con nginx |
+
+Construir las imágenes y arrancar los dos contenedores:
+
+```bash
+docker compose up -d --build
+```
+
+Probar que funciona:
+
+1. Abre <http://localhost:8080>: debe aparecer el frontend de la tienda.
+2. Abre <http://localhost:8000/docs>: debe aparecer la documentación de la API.
+3. Comprueba que los contenedores se comunican. El frontend reenvía a la API todo lo
+   que llega a `/api/`, usando el nombre del servicio (`http://api:8000`):
+
+   ```bash
+   curl http://localhost:8080/api/productos
+   ```
+
+   Salida esperada: `[]`
+
+En el campo **Servidor API** del frontend se puede usar `http://localhost:8000`
+(el navegador llama directamente a la API) o `http://localhost:8080/api`
+(la petición pasa por el contenedor del frontend, que la reenvía a la API).
+
+Parar y borrar los dos contenedores:
+
+```bash
+docker compose down
 ```
 
 ## Ejecutar sin Docker

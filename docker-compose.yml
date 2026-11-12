@@ -1,0 +1,22 @@
+# Levanta la API y el frontend juntos, en la misma red de Docker
+services:
+  # API REST (FastAPI), construida con el Dockerfile de la raíz
+  api:
+    build: .
+    image: sanchezsoutomarcos/tienda-online-api:1.0.0
+    container_name: tienda-api
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+    ports:
+      - "8000:8000"
+
+  # Frontend web (nginx), construido con src/frontend/Dockerfile
+  frontend:
+    build: ./src/frontend
+    image: sanchezsoutomarcos/tienda-online-frontend:1.0.0
+    container_name: tienda-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
